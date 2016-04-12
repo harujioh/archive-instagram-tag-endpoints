@@ -3,7 +3,7 @@
 Plugin Name: Archive Instagram Tag Endpoints
 Description: Instagramの投稿をタグ別に取得してDBに格納するプラグイン
 Author: harujioh
-Version: 1.0
+Version: 1.1
 */
 
 define('INSTAGRAM_TAG_ENDPOINTS_API_URI'			, 'https://api.instagram.com/v1/tags/%s/media/recent');
@@ -26,7 +26,7 @@ class ArchiveInstagramTagEndpoints {
 		$this->menuName		= 'Instagram by Tag';
 		$this->pageTitle	= '"Archive Instagram Tag Endpoints" Settings';
 		$this->pageName		= 'instagram-by-tag';
-		$this->version 		= '1.0';
+		$this->version 		= '1.1';
 
 		$name = 'archive_instagram_tag_endpoints';
 		$this->tableName	= $wpdb->prefix . $name;
@@ -258,9 +258,10 @@ class ArchiveInstagramTagEndpoints {
 		$response = wp_remote_get(isset($url) ? $url : sprintf(INSTAGRAM_TAG_ENDPOINTS_API_URI, $param['tag']) . '?' . $data);
 		$json = json_decode($response['body']);
 		
-		$minTagId = -1;
+		$minTagId = null;
 		$insertDatas = array();
 		if(isset($json->data)){
+			$minTagId = $json->pagination->min_tag_id;
 			foreach($json->data as $data){
 				$insertDatas[] = array(
 					'ai_id' => null,
@@ -274,13 +275,10 @@ class ArchiveInstagramTagEndpoints {
 					'instagram_image' => $data->images->standard_resolution->url,
 					'instagram_created_time' => $data->caption->created_time
 				);
-				if($minTagId < 0){
-					$minTagId = (int)($data->caption->id);
-				}
 			}
 		}
 
-		if($n == 0 && $minTagId >= 0){
+		if($n == 0 && isset($minTagId)){
 			update_option($this->optName, array_merge(get_option($this->optName), array('min_tag_id' => $minTagId)));
 		}
 		if(isset($json->pagination->next_url) && $n + 1 < INSTAGRAM_TAG_ENDPOINTS_API_MAX_PAGENATION){
